@@ -1,0 +1,44 @@
+# GymFinder backend stack: Express API + MongoDB.
+#
+#   docker compose up -d --build        # API on http://localhost:5000
+#
+# The mobile (Expo) app runs on the host, not in Docker; see README.md.
+#
+# By default the API uses the bundled MongoDB container. To use MongoDB Atlas
+# instead, set MONGO_URI in a root-level .env file (next to this file) and run:
+#   docker compose up -d --build --no-deps backend
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # Reuses SEED_API_KEY, OVERPASS_URL, CORS_ORIGIN, ... from backend/.env.
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # Overrides backend/.env so the container talks to the mongo service.
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/gymfinder}
+      PORT: "5000"
+    ports:
+      # Published on all interfaces so a phone on the same Wi-Fi can reach it.
+      - "${BACKEND_PORT:-5000}:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+        required: false
+
+volumes:
+  mongo-data:
