@@ -1,11 +1,19 @@
 {
   "expo": {
-    "name": "gym-finder-app",
-    "slug": "gym-finder-app",
+    "name": "GymFinder",
+    "slug": "gym-finder",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "GymFinder uses your location to find gyms nearby."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true
     },
