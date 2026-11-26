@@ -174,15 +174,57 @@ async function runOverpassAttempt(query, timeoutMs) {
   }
 }
 
+const FITNESS_SPORTS = /fitness|bodybuilding|crossfit|weightlifting|boxing|yoga/i;
+const FITNESS_NAME = /fitness|crossfit|boxing|yoga|bodyflex|muscle|\bgym\b/i;
+// Barangay courts and gymnasiums are often tagged as sports/fitness centres.
+const NOT_A_GYM_NAME = /covered court|gymnasium|basketball|badminton|tennis/i;
+
+/**
+ * Many PH gyms are tagged leisure=sports_centre or amenity=gym rather than
+ * leisure=fitness_centre; sports centres only count when sport or name says fitness.
+ */
+function isFitnessGym(tags) {
+  const name = String(tags.name || '');
+  if (NOT_A_GYM_NAME.test(name)) return false;
+  if (tags.leisure === 'fitness_centre' || tags.amenity === 'gym') return true;
+  return FITNESS_SPORTS.test(String(tags.sport || '')) || FITNESS_NAME.test(name);
+}
+
+function distanceMeters(fromLat, fromLng, [toLng, toLat]) {
+  const radians = (degrees) => (degrees * Math.PI) / 180;
+  const value =
+    Math.sin(radians(toLat - fromLat) / 2) ** 2 +
+    Math.cos(radians(fromLat)) *
+      Math.cos(radians(toLat)) *
+      Math.sin(radians(toLng - fromLng) / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
 export async function fetchOsmGyms({ lat, lng, radius = 15000 }) {
   assertCoordinates(lat, lng, radius);
+  // A bounding box with simple tag filters is far cheaper for Overpass than
+  // `around` + regex; the precise radius and gym checks happen below.
+  const latDelta = radius / 111320;
+  const lngDelta = radius / (111320 * Math.cos((lat * Math.PI) / 180));
+  const bbox = [lat - latDelta, lng - lngDelta, lat + latDelta, lng + lngDelta]
+    .map((value) => value.toFixed(6))
+    .join(',');
   const query = `
     [out:json][timeout:55];
-    nwr["leisure"="fitness_centre"](around:${radius},${lat},${lng});
+    (
+      nwr["leisure"="fitness_centre"](${bbox});
+      nwr["amenity"="gym"](${bbox});
+      nwr["leisure"="sports_centre"](${bbox});
+    );
     out center tags;
   `;
   const elements = await runOverpassQuery(query);
-  return elements.map(normalizeElement).filter(Boolean);
+  return elements
+    .filter((element) => isFitnessGym(element.tags || {}))
+    .map(normalizeElement)
+    .filter(
+      (gym) => gym && distanceMeters(lat, lng, gym.location.coordinates) <= radius,
+    );
 }
 
 export async function fetchOsmGymById(type, id) {

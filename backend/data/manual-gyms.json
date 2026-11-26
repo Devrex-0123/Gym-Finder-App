@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Ace Fitness Gym",
+    "address": "PDCI Building, Rizal Street",
+    "barangay": null,
+    "city": "Ormoc City",
+    "coordinates": [124.607992, 11.007422],
+    "locationApproximate": true,
+    "phone": "(053) 255 7700",
+    "amenities": [],
+    "sourceUrl": "https://www.waze.com/live-map/directions/ph/eastern-visayas/ormoc-city/ace-fitness-gym?to=place.ChIJHSnovDrxBzMR7pwh2Al6IBs"
+  },
+  {
+    "name": "J-Power Fitness Gym",
+    "address": "Aviles corner Bonifacio Street",
+    "barangay": null,
+    "city": "Ormoc City",
+    "coordinates": [124.608004, 11.005686],
+    "locationApproximate": true,
+    "phone": null,
+    "amenities": [],
+    "sourceUrl": "https://www.facebook.com/JPowerFitnessGym/"
+  },
+  {
+    "name": "Fit Stop Gym",
+    "address": "LM Citilane Building, Aviles Street",
+    "barangay": null,
+    "city": "Ormoc City",
+    "coordinates": [124.608822, 11.005472],
+    "locationApproximate": true,
+    "phone": null,
+    "amenities": [],
+    "sourceUrl": "https://www.facebook.com/Fitstopgymormoc/"
+  },
+  {
+    "name": "Flexifit Gym",
+    "address": "2nd Floor, EBR Building (Tyre Pro), Real Street corner Carlos Tan Street",
+    "barangay": null,
+    "city": "Ormoc City",
+    "coordinates": [124.607661, 11.009346],
+    "locationApproximate": true,
+    "phone": null,
+    "amenities": [],
+    "sourceUrl": "https://gyms.heyplaces.ph/Ormoc/"
+  },
+  {
+    "name": "Muscle House Gym",
+    "address": "Ormoc City Superdome",
+    "barangay": null,
+    "city": "Ormoc City",
+    "coordinates": [124.609722, 11.004381],
+    "locationApproximate": true,
+    "phone": null,
+    "amenities": [],
+    "sourceUrl": "https://gyms.heyplaces.ph/0666266/Muscle_House_Gym_Ormoc_City,_Superdome"
+  },
+  {
+    "name": "GYM Buddies",
+    "address": "Simangan, Brgy. Sto. Niño",
+    "barangay": "Sto. Niño",
+    "city": "Ormoc City",
+    "coordinates": [124.590898, 11.043254],
+    "locationApproximate": true,
+    "phone": "+63 950 272 2851",
+    "amenities": ["Boxing"],
+    "sourceUrl": "https://www.facebook.com/p/GYM-Buddies-61552391356177/"
+  }
+]

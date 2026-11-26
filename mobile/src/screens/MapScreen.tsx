@@ -213,7 +213,9 @@ export default function MapScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.brand}>GYMFINDER</Text>
+            <Text style={styles.brand}>
+              GYM<Text style={styles.brandAccent}>FINDER</Text>
+            </Text>
             <Text style={styles.tagline}>Find your next workout</Text>
           </View>
           <View style={styles.segmented} accessibilityRole="tablist">
@@ -230,7 +232,7 @@ export default function MapScreen() {
                   <Ionicons
                     name={mode === 'map' ? 'map' : 'list'}
                     size={14}
-                    color={active ? '#173c35' : '#d5e5df'}
+                    color={active ? '#fff' : '#C9C9CF'}
                   />
                   <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
                     {mode === 'map' ? 'Map' : 'List'}
@@ -241,19 +243,19 @@ export default function MapScreen() {
           </View>
         </View>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color="#52625c" />
+          <Ionicons name="search" size={18} color="#4A4A52" />
           <TextInput
             accessibilityLabel="Search gyms"
             value={query}
             onChangeText={setQuery}
             placeholder="Search gym or city"
-            placeholderTextColor="#87918f"
+            placeholderTextColor="#8E8E96"
             returnKeyType="search"
             style={styles.searchInput}
           />
           {query.length > 0 && (
             <Pressable onPress={() => setQuery('')} hitSlop={10} accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color="#8a948f" />
+              <Ionicons name="close-circle" size={18} color="#8E8E96" />
             </Pressable>
           )}
         </View>
@@ -294,7 +296,7 @@ export default function MapScreen() {
         <View style={styles.mapTopOverlay} pointerEvents="box-none">
           {loading ? (
             <View style={styles.statusPill}>
-              <ActivityIndicator size="small" color="#173c35" />
+              <ActivityIndicator size="small" color="#E11D2E" />
               <Text style={styles.statusText}>
                 {slowLoading ? 'Fetching gyms for this area… up to a minute' : 'Finding gyms…'}
               </Text>
@@ -323,7 +325,7 @@ export default function MapScreen() {
               { bottom: (gyms.length > 0 ? CAROUSEL_HEIGHT : 0) + 14 },
             ]}
           >
-            <Ionicons name="locate" size={22} color="#173c35" />
+            <Ionicons name="locate" size={22} color="#111111" />
           </Pressable>
         )}
 
@@ -358,7 +360,7 @@ export default function MapScreen() {
           !loading &&
           !error && (
             <View style={styles.mapEmptyCard}>
-              <Ionicons name="barbell-outline" size={22} color="#173c35" />
+              <Ionicons name="barbell-outline" size={22} color="#111111" />
               <View style={styles.mapEmptyTextWrap}>
                 <Text style={styles.emptyTitle}>No gyms found here</Text>
                 <Text style={styles.emptyText}>{emptyHint}</Text>
@@ -398,12 +400,12 @@ export default function MapScreen() {
                 </View>
               }
               refreshControl={
-                <RefreshControl refreshing={loading} onRefresh={retry} tintColor="#173c35" />
+                <RefreshControl refreshing={loading} onRefresh={retry} tintColor="#E11D2E" colors={["#E11D2E"]} />
               }
               ListEmptyComponent={
                 loading ? undefined : (
                   <View style={styles.emptyState}>
-                    <Ionicons name="barbell-outline" size={36} color="#9aa7a1" />
+                    <Ionicons name="barbell-outline" size={36} color="#8E8E96" />
                     <Text style={styles.emptyTitle}>
                       {error ? 'Could not load gyms' : 'No gyms found here'}
                     </Text>
@@ -441,13 +443,13 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#173c35',
+    backgroundColor: '#111111',
   },
   titleRow: {
     flexDirection: 'row',
@@ -461,8 +463,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.7,
   },
+  brandAccent: {
+    color: '#E11D2E',
+  },
   tagline: {
-    color: '#c4d6d1',
+    color: '#B8B8BE',
     fontSize: 12,
     marginTop: 2,
   },
@@ -470,7 +475,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 3,
     borderRadius: 18,
-    backgroundColor: '#28594c',
+    backgroundColor: '#2A2A2E',
   },
   segment: {
     flexDirection: 'row',
@@ -481,15 +486,15 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   segmentActive: {
-    backgroundColor: '#fff',
+    backgroundColor: '#E11D2E',
   },
   segmentText: {
-    color: '#d5e5df',
+    color: '#C9C9CF',
     fontSize: 12,
     fontWeight: '800',
   },
   segmentTextActive: {
-    color: '#173c35',
+    color: '#fff',
   },
   searchBox: {
     height: 44,
@@ -503,7 +508,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: 0,
-    color: '#17221f',
+    color: '#111111',
     fontSize: 14,
   },
   notice: {
@@ -546,7 +551,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     flexShrink: 1,
-    color: '#173c35',
+    color: '#111111',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -563,7 +568,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 17,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#173c35',
+    backgroundColor: '#E11D2E',
     elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.2,
@@ -623,7 +628,7 @@ const styles = StyleSheet.create({
   },
   listLayer: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   listContent: {
     flexGrow: 1,
@@ -636,7 +641,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   resultsTitle: {
-    color: '#17221f',
+    color: '#111111',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -671,7 +676,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyTitle: {
-    color: '#26332f',
+    color: '#1A1A1D',
     fontSize: 15,
     fontWeight: '800',
   },

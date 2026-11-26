@@ -20,6 +20,10 @@ export interface Gym {
   source: 'manual' | 'osm';
   isActive: boolean;
   distanceMeters?: number;
+  /** Where a manually added listing came from. */
+  sourceUrl?: string | null;
+  /** True when the pin is street/landmark level rather than the exact building. */
+  locationApproximate?: boolean;
   osmType?: string;
   osmId?: number;
 }

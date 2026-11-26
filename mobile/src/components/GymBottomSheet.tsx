@@ -115,8 +115,26 @@ export default function GymBottomSheet({
                 onPress={() => void openExternalUrl(`tel:${gym.phone}`)}
                 style={styles.phoneButton}
               >
+                <Ionicons name="call" size={15} color="#E11D2E" />
                 <Text style={styles.phoneText}>{gym.phone}</Text>
               </Pressable>
+            )}
+
+            {(gym.locationApproximate || gym.sourceUrl) && (
+              <View style={styles.sourceNote}>
+                <Ionicons name="information-circle-outline" size={15} color="#6b6b73" />
+                <Text style={styles.sourceNoteText}>
+                  {gym.locationApproximate ? 'Map pin is approximate (street level). ' : ''}
+                  {gym.sourceUrl && (
+                    <Text
+                      style={styles.sourceLink}
+                      onPress={() => void openExternalUrl(gym.sourceUrl as string)}
+                    >
+                      View listing
+                    </Text>
+                  )}
+                </Text>
+              </View>
             )}
 
             <View style={styles.actions}>
@@ -138,7 +156,7 @@ export default function GymBottomSheet({
                 <Ionicons
                   name={isFavorite ? 'heart' : 'heart-outline'}
                   size={17}
-                  color={isFavorite ? '#c0392b' : '#24493c'}
+                  color={isFavorite ? '#c0392b' : '#1A1A1D'}
                 />
                 <Text style={styles.favoriteText}>{isFavorite ? 'Saved' : 'Favorite'}</Text>
               </Pressable>
@@ -190,7 +208,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#183d36',
+    backgroundColor: '#111111',
   },
   imageFallbackTitle: {
     color: '#fff',
@@ -199,7 +217,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   imageFallbackCaption: {
-    color: '#c4d6d1',
+    color: '#B8B8BE',
     fontSize: 12,
     marginTop: 6,
   },
@@ -213,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    color: '#17221f',
+    color: '#111111',
     fontSize: 20,
     lineHeight: 25,
     fontWeight: '800',
@@ -224,7 +242,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   distance: {
-    color: '#24634f',
+    color: '#E11D2E',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 5,
@@ -253,7 +271,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 13,
-    backgroundColor: '#f2f6f4',
+    backgroundColor: '#F3F3F5',
   },
   detailLabel: {
     color: '#78838b',
@@ -262,13 +280,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   price: {
-    color: '#203b34',
+    color: '#1A1A1D',
     fontSize: 13,
     fontWeight: '700',
     marginTop: 5,
   },
   detailValue: {
-    color: '#283532',
+    color: '#1A1A1D',
     fontSize: 13,
     marginTop: 6,
   },
@@ -285,20 +303,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 14,
-    backgroundColor: '#edf2ef',
+    backgroundColor: '#F3F3F5',
   },
   amenityText: {
-    color: '#315b4c',
+    color: '#1A1A1D',
     fontSize: 11,
     fontWeight: '700',
   },
+  sourceNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F3F3F5',
+  },
+  sourceNoteText: {
+    flex: 1,
+    color: '#6b6b73',
+    fontSize: 11,
+  },
+  sourceLink: {
+    color: '#E11D2E',
+    fontWeight: '800',
+  },
   phoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-start',
     marginTop: 14,
     paddingVertical: 8,
   },
   phoneText: {
-    color: '#24634f',
+    color: '#E11D2E',
     fontWeight: '700',
   },
   actions: {
@@ -316,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   directionsButton: {
-    backgroundColor: '#173c35',
+    backgroundColor: '#E11D2E',
   },
   directionsText: {
     color: '#fff',
@@ -324,11 +363,11 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     borderWidth: 1,
-    borderColor: '#d6e0db',
+    borderColor: '#E2E2E6',
     backgroundColor: '#fff',
   },
   favoriteText: {
-    color: '#24493c',
+    color: '#1A1A1D',
     fontWeight: '800',
   },
   fullDetailsButton: {
@@ -336,7 +375,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   fullDetailsText: {
-    color: '#24634f',
+    color: '#E11D2E',
     fontSize: 13,
     fontWeight: '700',
   },

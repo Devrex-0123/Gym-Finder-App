@@ -71,7 +71,7 @@ export default function FavoritesScreen() {
       {error && <Text style={styles.error}>{error}</Text>}
       {loading && gyms.length === 0 ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#173c35" size="large" />
+          <ActivityIndicator color="#E11D2E" size="large" />
         </View>
       ) : (
         <FlatList
@@ -111,13 +111,13 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 18,
-    backgroundColor: '#173c35',
+    backgroundColor: '#111111',
   },
   brand: {
     color: '#fff',
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   subtitle: {
-    color: '#c4d6d1',
+    color: '#B8B8BE',
     fontSize: 12,
     marginTop: 4,
   },
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
   },
   emptyTitle: {
-    color: '#26332f',
+    color: '#1A1A1D',
     fontSize: 17,
     fontWeight: '800',
   },

@@ -83,7 +83,7 @@ export default function GymDetailScreen({ route, navigation }: Props) {
   if (!gym && loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#173c35" />
+        <ActivityIndicator size="large" color="#E11D2E" />
         <Text style={styles.muted}>Loading gym details…</Text>
       </SafeAreaView>
     );
@@ -146,7 +146,7 @@ export default function GymDetailScreen({ route, navigation }: Props) {
             {gym.totalReviews == null ? '' : `${gym.totalReviews} reviews`}
           </Text>
         </View>
-        {loading && <ActivityIndicator color="#173c35" style={styles.refreshIndicator} />}
+        {loading && <ActivityIndicator color="#E11D2E" style={styles.refreshIndicator} />}
 
         <View style={styles.priceRow}>
           <View style={styles.priceCard}>
@@ -222,14 +222,14 @@ export default function GymDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#173c35',
+    backgroundColor: '#111111',
   },
   header: {
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    backgroundColor: '#173c35',
+    backgroundColor: '#111111',
   },
   backButton: {
     width: 42,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   content: {
     padding: 18,
     paddingBottom: 36,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   image: {
     height: 220,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#214b40',
+    backgroundColor: '#1A1A1D',
   },
   imageTitle: {
     color: '#fff',
@@ -283,11 +283,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   imageSubTitle: {
-    color: '#d0e0d9',
+    color: '#E2E2E6',
     marginTop: 7,
   },
   name: {
-    color: '#17221f',
+    color: '#111111',
     fontSize: 24,
     fontWeight: '800',
     marginTop: 18,
@@ -333,13 +333,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   price: {
-    color: '#183d36',
+    color: '#111111',
     fontSize: 16,
     fontWeight: '800',
     marginTop: 7,
   },
   bodyText: {
-    color: '#283532',
+    color: '#1A1A1D',
     fontSize: 14,
     marginTop: 7,
   },
@@ -356,10 +356,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 8,
     borderRadius: 15,
-    backgroundColor: '#e3ece7',
+    backgroundColor: '#F3F3F5',
   },
   amenityText: {
-    color: '#315b4c',
+    color: '#1A1A1D',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   phoneText: {
-    color: '#24634f',
+    color: '#E11D2E',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 50,
     borderRadius: 15,
-    backgroundColor: '#173c35',
+    backgroundColor: '#E11D2E',
   },
   primaryButtonText: {
     color: '#fff',
@@ -393,11 +393,11 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#cdd9d3',
+    borderColor: '#E2E2E6',
     backgroundColor: '#fff',
   },
   secondaryButtonText: {
-    color: '#24493c',
+    color: '#1A1A1D',
     fontWeight: '800',
     fontSize: 14,
   },
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   muted: {
     color: '#697580',
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   errorTitle: {
-    color: '#17221f',
+    color: '#111111',
     fontSize: 20,
     fontWeight: '800',
   },

@@ -7,9 +7,18 @@ async function main() {
     throw new Error('MONGO_URI is required in backend/.env.');
   }
 
+  // Optional area: npm run seed -- --lat 11.0064 --lng 124.6075
+  const arg = (name) => {
+    const index = process.argv.indexOf(`--${name}`);
+    return index === -1 ? undefined : Number(process.argv[index + 1]);
+  };
+  const area = Object.fromEntries(
+    Object.entries({ lat: arg('lat'), lng: arg('lng') }).filter(([, value]) => value !== undefined),
+  );
+
   await mongoose.connect(process.env.MONGO_URI);
   try {
-    const result = await seedOsmGyms();
+    const result = await seedOsmGyms(area);
     console.log(
       `Saved ${result.saved} of ${result.requested} requested gyms from ${result.available} named OSM listings.`,
     );

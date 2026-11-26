@@ -12,6 +12,14 @@
         {
           "locationWhenInUsePermission": "GymFinder uses your location to find gyms nearby."
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#111111",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
       ]
     ],
     "ios": {
@@ -28,6 +36,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "backgroundColor": "#111111"
   }
 }

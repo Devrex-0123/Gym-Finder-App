@@ -55,7 +55,7 @@ export default function GymCard({
         <Image source={{ uri: gym.image }} style={[styles.thumb, compact && styles.compactThumb]} />
       ) : (
         <View style={[styles.thumb, styles.thumbFallback, compact && styles.compactThumb]}>
-          <Ionicons name="barbell" size={compact ? 24 : 28} color="#d6f1e4" />
+          <Ionicons name="barbell" size={compact ? 24 : 28} color="#E11D2E" />
         </View>
       )}
 
@@ -74,7 +74,7 @@ export default function GymCard({
         <View style={styles.metaRow}>
           {distance && (
             <View style={styles.distanceBadge}>
-              <Ionicons name="navigate" size={11} color="#1f5f4b" />
+              <Ionicons name="navigate" size={11} color="#C8102E" />
               <Text style={styles.distanceText}>{distance}</Text>
             </View>
           )}
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
     backgroundColor: '#fff',
-    shadowColor: '#13221f',
+    shadowColor: '#111111',
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   selectedCard: {
-    borderColor: '#173c35',
+    borderColor: '#E11D2E',
   },
   pressed: {
     opacity: 0.85,
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   thumbFallback: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#183d36',
+    backgroundColor: '#111111',
   },
   content: {
     flex: 1,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   name: {
-    color: '#14211f',
+    color: '#111111',
     fontSize: 15,
     fontWeight: '800',
   },
@@ -181,10 +181,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: '#e4f1eb',
+    backgroundColor: '#FDECEE',
   },
   distanceText: {
-    color: '#1f5f4b',
+    color: '#C8102E',
     fontSize: 11,
     fontWeight: '800',
   },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   price: {
-    color: '#213b35',
+    color: '#1A1A1D',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -208,10 +208,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: '#f0f3f2',
+    backgroundColor: '#F3F3F5',
   },
   tagText: {
-    color: '#4d5d57',
+    color: '#4A4A52',
     fontSize: 10,
     fontWeight: '700',
   },

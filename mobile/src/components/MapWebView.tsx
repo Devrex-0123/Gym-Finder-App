@@ -56,24 +56,28 @@ function createMapHtml(
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; overflow: hidden; }
+    /* .gym-marker is positioned by MapLibre (position + transform): never
+       style either of those here. All visuals live on the inner .gym-pin. */
+    .gym-marker { width: 32px; height: 38px; cursor: pointer; }
+    .gym-marker.selected { z-index: 5; }
     .gym-pin {
       position: relative;
       width: 32px; height: 38px; display: flex; justify-content: center;
-      align-items: flex-start; cursor: pointer; filter: drop-shadow(0 2px 3px #0005);
+      align-items: flex-start; filter: drop-shadow(0 2px 3px #0005);
       transition: transform 120ms ease-out;
       transform-origin: bottom center;
     }
+    .gym-marker.selected .gym-pin { transform: scale(1.3); }
     .gym-pin::before {
       content: ""; width: 28px; height: 28px; margin-top: 2px;
-      background: #e44343; border: 3px solid #fff; border-radius: 50% 50% 50% 0;
+      background: #E11D2E; border: 3px solid #fff; border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
     }
     .gym-pin::after {
       content: ""; width: 8px; height: 8px; position: absolute; top: 12px;
       background: white; border-radius: 50%;
     }
-    .gym-pin.selected { z-index: 5; }
-    .gym-pin.selected::before { background: #173c35; }
+    .gym-marker.selected .gym-pin::before { background: #111111; border-color: #E11D2E; }
     .maplibregl-ctrl-attrib.maplibregl-compact { font-size: 10px; }
   </style>
 </head>
@@ -96,7 +100,6 @@ function createMapHtml(
       let bottomInset = 0;
       let userCoordinates = initialUser;
       let mapLoaded = false;
-      let ignoreProgrammaticMove = false;
 
       function send(message) {
         if (window.ReactNativeWebView) {
@@ -106,10 +109,7 @@ function createMapHtml(
 
       function applySelection() {
         Object.keys(markers).forEach(function (id) {
-          const element = markers[id].getElement();
-          const selected = id === selectedId;
-          element.classList.toggle('selected', selected);
-          element.style.transform = selected ? 'scale(1.3)' : '';
+          markers[id].getElement().classList.toggle('selected', id === selectedId);
         });
       }
 
@@ -118,7 +118,10 @@ function createMapHtml(
         markers = {};
         gyms.forEach(function (gym) {
           const element = document.createElement('div');
-          element.className = 'gym-pin';
+          element.className = 'gym-marker';
+          const pin = document.createElement('div');
+          pin.className = 'gym-pin';
+          element.appendChild(pin);
           const marker = new maplibregl.Marker({ element: element, anchor: 'bottom' })
             .setLngLat(gym.location.coordinates)
             .addTo(map);
@@ -134,7 +137,6 @@ function createMapHtml(
       function focusSelected() {
         const gym = gyms.find(function (item) { return item._id === selectedId; });
         if (!gym || !map) return;
-        ignoreProgrammaticMove = true;
         map.easeTo({ center: gym.location.coordinates, duration: 450 });
       }
 
@@ -190,7 +192,6 @@ function createMapHtml(
         if (payload.center) {
           centerCoordinates = [payload.center.longitude, payload.center.latitude];
           if (ready) {
-            ignoreProgrammaticMove = true;
             map.easeTo({ center: centerCoordinates, duration: 450 });
           }
         }
@@ -221,14 +222,12 @@ function createMapHtml(
         map.setPadding({ top: 0, left: 0, right: 0, bottom: bottomInset });
         if (userCoordinates) setUserPoint(userCoordinates);
         renderGyms();
-        ignoreProgrammaticMove = true;
         map.jumpTo({ center: centerCoordinates });
       });
-      map.on('moveend', function () {
-        if (!mapLoaded || ignoreProgrammaticMove) {
-          ignoreProgrammaticMove = false;
-          return;
-        }
+      // Only user gestures (drag, pinch, zoom buttons) carry originalEvent;
+      // programmatic easeTo/jumpTo moves do not.
+      map.on('moveend', function (event) {
+        if (!mapLoaded || !event.originalEvent) return;
         const center = map.getCenter();
         send({
           type: 'mapMove',

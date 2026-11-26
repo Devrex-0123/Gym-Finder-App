@@ -44,6 +44,10 @@ const gymSchema = new mongoose.Schema(
       default: 'manual',
     },
     isActive: { type: Boolean, default: true },
+    // Where a manually added listing came from, and whether its pin is only
+    // street/landmark-level (not the exact building).
+    sourceUrl: { type: String, default: null, trim: true },
+    locationApproximate: { type: Boolean, default: false },
     osmType: { type: String, default: null },
     osmId: { type: Number, default: null },
   },

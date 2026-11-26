@@ -1,10 +1,11 @@
-import type { ComponentProps } from 'react';
+import { useCallback, useState, type ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import SplashIntro from './src/components/SplashIntro';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import GymDetailScreen from './src/screens/GymDetailScreen';
 import MapScreen from './src/screens/MapScreen';
@@ -22,20 +23,26 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  // Keep the tabs above the phone's own navigation bar (3-button or gesture).
+  // Some Android devices report 0 here even with a bar drawn over the app.
+  const bottom = Math.max(insets.bottom, 10);
+
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#173c35',
-        tabBarInactiveTintColor: '#8a968f',
+        tabBarActiveTintColor: '#E11D2E',
+        tabBarInactiveTintColor: '#8E8E96',
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarIcon: ({ focused, color, size }) => (
           <Ionicons name={TAB_ICONS[route.name][focused ? 0 : 1]} size={size} color={color} />
         ),
-        // No fixed height: let the navigator add the device's bottom inset.
         tabBarStyle: {
+          height: 58 + bottom,
           paddingTop: 6,
-          borderTopColor: '#e3e8e5',
+          paddingBottom: bottom,
+          borderTopColor: '#E2E2E6',
           backgroundColor: '#fff',
         },
       })}
@@ -55,6 +62,9 @@ function MainTabs() {
 }
 
 export default function App() {
+  const [showIntro, setShowIntro] = useState(true);
+  const hideIntro = useCallback(() => setShowIntro(false), []);
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -68,6 +78,7 @@ export default function App() {
           />
         </Stack.Navigator>
       </NavigationContainer>
+      {showIntro && <SplashIntro onFinish={hideIntro} />}
     </SafeAreaProvider>
   );
 }

@@ -46,7 +46,7 @@ function FilterChip({
       hitSlop={4}
       style={[styles.chip, selected && styles.selectedChip]}
     >
-      {icon && <Ionicons name={icon} size={14} color={selected ? '#fff' : '#4a5852'} />}
+      {icon && <Ionicons name={icon} size={14} color={selected ? '#fff' : '#4A4A52'} />}
       <Text style={[styles.chipText, selected && styles.selectedChipText]}>{label}</Text>
     </Pressable>
   );
@@ -92,7 +92,7 @@ export default function FilterBar({
 const styles = StyleSheet.create({
   wrapper: {
     flexGrow: 0,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#F5F5F6',
   },
   row: {
     alignItems: 'center',
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     width: 1,
     height: 22,
     marginHorizontal: 4,
-    backgroundColor: '#d3dad6',
+    backgroundColor: '#E2E2E6',
   },
   chip: {
     flexDirection: 'row',
@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   selectedChip: {
-    borderColor: '#163b35',
-    backgroundColor: '#163b35',
+    borderColor: '#E11D2E',
+    backgroundColor: '#E11D2E',
   },
   chipText: {
     color: '#34404b',
