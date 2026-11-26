@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Gym } from '../types/gym';
 
@@ -127,15 +128,19 @@ export default function GymBottomSheet({
                 }
                 style={[styles.actionButton, styles.directionsButton]}
               >
+                <Ionicons name="navigate" size={17} color="#fff" />
                 <Text style={styles.directionsText}>Directions</Text>
               </Pressable>
               <Pressable
                 onPress={onToggleFavorite}
                 style={[styles.actionButton, styles.favoriteButton]}
               >
-                <Text style={styles.favoriteText}>
-                  {isFavorite ? '♥ Saved' : '♡ Favorite'}
-                </Text>
+                <Ionicons
+                  name={isFavorite ? 'heart' : 'heart-outline'}
+                  size={17}
+                  color={isFavorite ? '#c0392b' : '#24493c'}
+                />
+                <Text style={styles.favoriteText}>{isFavorite ? 'Saved' : 'Favorite'}</Text>
               </Pressable>
             </View>
             <Pressable onPress={onOpenDetails} style={styles.fullDetailsButton}>
@@ -155,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0006',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     maxHeight: '86%',
@@ -303,6 +308,8 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 7,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,

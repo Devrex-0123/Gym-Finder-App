@@ -1,55 +1,104 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { Gym } from '../types/gym';
 
-function formatPrice(value: number | null, suffix: string): string {
-  if (value == null) return 'Price not listed';
-  return `₱${value.toLocaleString('en-PH')} ${suffix}`;
+export function formatDistance(meters: number | undefined): string | null {
+  if (meters == null) return null;
+  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
+}
+
+function priceLabel(gym: Gym): string | null {
+  if (gym.pricePerMonth != null) return `₱${gym.pricePerMonth.toLocaleString('en-PH')}/mo`;
+  if (gym.pricePerSession != null) return `₱${gym.pricePerSession.toLocaleString('en-PH')}/session`;
+  return null;
 }
 
 interface GymCardProps {
   gym: Gym;
   onPress: () => void;
+  /** "compact" is the swipeable card shown over the map. */
+  variant?: 'list' | 'compact';
+  selected?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
-export default function GymCard({ gym, onPress }: GymCardProps) {
-  const coordinates = gym.location.coordinates;
+export default function GymCard({
+  gym,
+  onPress,
+  variant = 'list',
+  selected = false,
+  style,
+}: GymCardProps) {
   const locality = [gym.barangay, gym.city].filter(Boolean).join(', ');
+  const address = gym.address || locality || 'Address not listed';
+  const distance = formatDistance(gym.distanceMeters);
+  const price = priceLabel(gym);
+  const compact = variant === 'compact';
+  const tags = gym.is24Hours
+    ? ['24hrs', ...gym.amenities.filter((amenity) => amenity !== '24hrs')]
+    : gym.amenities;
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${gym.name}${distance ? `, ${distance} away` : ''}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        compact ? styles.compactCard : styles.listCard,
+        selected && styles.selectedCard,
+        pressed && styles.pressed,
+        style,
+      ]}
     >
-      <View style={styles.imageFallback}>
-        <Text style={styles.imageGlyph}>GYM</Text>
-      </View>
+      {gym.image ? (
+        <Image source={{ uri: gym.image }} style={[styles.thumb, compact && styles.compactThumb]} />
+      ) : (
+        <View style={[styles.thumb, styles.thumbFallback, compact && styles.compactThumb]}>
+          <Ionicons name="barbell" size={compact ? 24 : 28} color="#d6f1e4" />
+        </View>
+      )}
+
       <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <Text numberOfLines={1} style={styles.name}>
-            {gym.name}
-          </Text>
-          <Text style={styles.rating}>
-            {gym.rating == null ? '—' : gym.rating.toFixed(1)}
+        <Text numberOfLines={1} style={styles.name}>
+          {gym.name}
+        </Text>
+
+        <View style={styles.inlineRow}>
+          <Ionicons name="location-outline" size={13} color="#6b7781" />
+          <Text numberOfLines={1} style={styles.address}>
+            {address}
           </Text>
         </View>
-        <Text numberOfLines={1} style={styles.address}>
-          {gym.address || locality || 'Address not listed'}
-        </Text>
+
         <View style={styles.metaRow}>
-          <Text style={styles.price}>
-            {formatPrice(gym.pricePerMonth, '/ month')}
-          </Text>
-          {gym.distanceMeters != null && (
-            <Text style={styles.distance}>
-              {(gym.distanceMeters / 1000).toFixed(1)} km
-            </Text>
+          {distance && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="navigate" size={11} color="#1f5f4b" />
+              <Text style={styles.distanceText}>{distance}</Text>
+            </View>
           )}
+          {gym.rating != null && (
+            <View style={styles.inlineRow}>
+              <Ionicons name="star" size={12} color="#d99a1e" />
+              <Text style={styles.rating}>{gym.rating.toFixed(1)}</Text>
+            </View>
+          )}
+          {price && <Text style={styles.price}>{price}</Text>}
         </View>
-        <Text numberOfLines={1} style={styles.amenities}>
-          {gym.amenities.length ? gym.amenities.join(' · ') : 'Amenities not listed'}
-        </Text>
+
+        {!compact && tags.length > 0 && (
+          <View style={styles.tags}>
+            {tags.slice(0, 4).map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
+
+      <Ionicons name="chevron-forward" size={18} color="#a4aeb5" style={styles.chevron} />
     </Pressable>
   );
 }
@@ -57,78 +106,116 @@ export default function GymCard({ gym, onPress }: GymCardProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 12,
+    alignItems: 'center',
     padding: 12,
     borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     backgroundColor: '#fff',
     shadowColor: '#13221f',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    elevation: 3,
+  },
+  listCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  compactCard: {
+    paddingVertical: 10,
+  },
+  selectedCard: {
+    borderColor: '#173c35',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.85,
   },
-  imageFallback: {
-    width: 76,
-    height: 76,
+  thumb: {
+    width: 72,
+    height: 72,
     borderRadius: 12,
+    backgroundColor: '#e8edf0',
+  },
+  compactThumb: {
+    width: 58,
+    height: 58,
+  },
+  thumbFallback: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#183d36',
   },
-  imageGlyph: {
-    color: '#d6f1e4',
-    fontWeight: '800',
-    fontSize: 14,
-    letterSpacing: 1,
-  },
   content: {
     flex: 1,
     marginLeft: 12,
-    justifyContent: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 4,
   },
   name: {
-    flex: 1,
     color: '#14211f',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  rating: {
-    color: '#b57616',
-    fontSize: 13,
-    fontWeight: '700',
+  inlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 1,
   },
   address: {
+    flexShrink: 1,
     color: '#697580',
     fontSize: 12,
-    marginTop: 4,
   },
   metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 7,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 2,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: '#e4f1eb',
+  },
+  distanceText: {
+    color: '#1f5f4b',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  rating: {
+    color: '#8a5d10',
+    fontSize: 12,
+    fontWeight: '700',
   },
   price: {
     color: '#213b35',
     fontSize: 12,
     fontWeight: '700',
   },
-  distance: {
-    color: '#697580',
-    fontSize: 12,
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 3,
   },
-  amenities: {
-    color: '#79838d',
-    fontSize: 11,
-    marginTop: 4,
+  tag: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#f0f3f2',
+  },
+  tagText: {
+    color: '#4d5d57',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  chevron: {
+    marginLeft: 6,
   },
 });

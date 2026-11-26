@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Alert,
@@ -107,12 +108,22 @@ export default function GymDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>‹</Text>
+        <Pressable
+          accessibilityLabel="Go back"
+          onPress={() => navigation.goBack()}
+          hitSlop={8}
+          style={styles.backButton}
+        >
+          <Ionicons name="chevron-back" size={26} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Gym details</Text>
-        <Pressable onPress={() => void toggleFavorite()} style={styles.saveButton}>
-          <Text style={styles.saveText}>{favorite ? '♥' : '♡'}</Text>
+        <Pressable
+          accessibilityLabel={favorite ? 'Remove from favorites' : 'Save to favorites'}
+          onPress={() => void toggleFavorite()}
+          hitSlop={8}
+          style={styles.saveButton}
+        >
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color="#fff" />
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content}>

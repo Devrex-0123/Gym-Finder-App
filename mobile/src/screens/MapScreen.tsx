@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,6 +9,9 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -23,15 +27,25 @@ import { getFavorites, setFavorite } from '../services/favorites';
 import type { Coordinates, Gym } from '../types/gym';
 
 type RootNavigation = NativeStackNavigationProp<RootStackParamList>;
+type ViewMode = 'map' | 'list';
+
+const CAROUSEL_SIDE_GAP = 24;
+const CAROUSEL_CARD_GAP = 10;
+/** Height of the card carousel + its bottom margin; the map keeps pins above it. */
+const CAROUSEL_HEIGHT = 112;
+/** The first search in a new area waits on OpenStreetMap, which can take ~1 min. */
+const SLOW_LOADING_MS = 6000;
 
 export default function MapScreen() {
   const navigation = useNavigation<RootNavigation>();
+  const { width: screenWidth } = useWindowDimensions();
   const {
     location,
     hasUserLocation,
     loading: locationLoading,
     error: locationError,
   } = useLocation();
+  const [viewMode, setViewMode] = useState<ViewMode>('map');
   const [mapCenter, setMapCenter] = useState<Coordinates>(location);
   const [searchCenter, setSearchCenter] = useState<Coordinates>(location);
   const [pendingCenter, setPendingCenter] = useState<Coordinates>(location);
@@ -41,12 +55,18 @@ export default function MapScreen() {
   const [amenity, setAmenity] = useState<string | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [gyms, setGyms] = useState<Gym[]>([]);
+  const [focusedGymId, setFocusedGymId] = useState<string | null>(null);
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [slowLoading, setSlowLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
+  const [noticeError, setNoticeError] = useState<string | null>(null);
+  const carouselRef = useRef<FlatList<Gym>>(null);
+
+  const cardWidth = screenWidth - CAROUSEL_SIDE_GAP * 2;
+  const cardInterval = cardWidth + CAROUSEL_CARD_GAP;
 
   useEffect(() => {
     if (locationLoading) return;
@@ -67,7 +87,7 @@ export default function MapScreen() {
         const saved = await getFavorites();
         if (active) setFavoriteIds(saved.map((gym) => gym._id));
       } catch (reason) {
-        if (active) setError(getApiErrorMessage(reason));
+        if (active) setNoticeError(getApiErrorMessage(reason));
       }
     };
 
@@ -85,7 +105,11 @@ export default function MapScreen() {
     if (locationLoading) return;
     let active = true;
     setLoading(true);
+    setSlowLoading(false);
     setError(null);
+    const slowTimer = setTimeout(() => {
+      if (active) setSlowLoading(true);
+    }, SLOW_LOADING_MS);
 
     getNearbyGyms(searchCenter.latitude, searchCenter.longitude, {
       search: debouncedQuery,
@@ -93,7 +117,10 @@ export default function MapScreen() {
       maxPrice,
     })
       .then((result) => {
-        if (active) setGyms(result);
+        if (!active) return;
+        setGyms(result);
+        setFocusedGymId(null);
+        carouselRef.current?.scrollToOffset({ offset: 0, animated: false });
       })
       .catch((reason: unknown) => {
         if (active) {
@@ -102,11 +129,13 @@ export default function MapScreen() {
         }
       })
       .finally(() => {
+        clearTimeout(slowTimer);
         if (active) setLoading(false);
       });
 
     return () => {
       active = false;
+      clearTimeout(slowTimer);
     };
   }, [
     amenity,
@@ -118,23 +147,33 @@ export default function MapScreen() {
     searchCenter.longitude,
   ]);
 
-  function openGym(gym: Gym) {
-    setSelectedGym(gym);
+  function retry() {
+    setRefreshKey((value) => value + 1);
   }
 
-  async function openGymFromMap(gymId: string) {
-    const currentGym = gyms.find((gym) => gym._id === gymId);
-    if (currentGym) {
-      setSelectedGym(currentGym);
+  async function handleMarkerPress(gymId: string) {
+    const index = gyms.findIndex((gym) => gym._id === gymId);
+    if (index === -1) {
+      try {
+        setSelectedGym(await getGymById(gymId));
+      } catch (reason) {
+        setNoticeError(getApiErrorMessage(reason));
+      }
       return;
     }
-
-    try {
-      const gym = await getGymById(gymId);
-      setSelectedGym(gym);
-    } catch (reason) {
-      setError(getApiErrorMessage(reason));
+    // Second tap on the highlighted pin opens its details.
+    if (focusedGymId === gymId) {
+      setSelectedGym(gyms[index]);
+      return;
     }
+    setFocusedGymId(gymId);
+    carouselRef.current?.scrollToIndex({ index, animated: true });
+  }
+
+  function handleCarouselSettled(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const index = Math.round(event.nativeEvent.contentOffset.x / cardInterval);
+    const gym = gyms[Math.min(Math.max(index, 0), gyms.length - 1)];
+    if (gym) setFocusedGymId(gym._id);
   }
 
   async function toggleSelectedFavorite() {
@@ -144,7 +183,7 @@ export default function MapScreen() {
       const saved = await setFavorite(selectedGym, shouldSave);
       setFavoriteIds(saved.map((gym) => gym._id));
     } catch (reason) {
-      setError(getApiErrorMessage(reason));
+      setNoticeError(getApiErrorMessage(reason));
     }
   }
 
@@ -152,6 +191,22 @@ export default function MapScreen() {
     setSearchCenter(pendingCenter);
     setHasMovedMap(false);
   }
+
+  function recenterOnUser() {
+    // New object so the map re-centers even if the coordinates are unchanged.
+    setMapCenter({ ...location });
+    setPendingCenter(location);
+    setSearchCenter(location);
+    setHasMovedMap(false);
+  }
+
+  const resultsLabel = loading
+    ? 'Searching…'
+    : `${gyms.length} ${gyms.length === 1 ? 'gym' : 'gyms'} nearby`;
+  const emptyHint =
+    maxPrice != null
+      ? 'Most listings don’t include prices yet. Try “Any price”.'
+      : 'Try another filter, or move the map and tap “Search this area”.';
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -161,12 +216,32 @@ export default function MapScreen() {
             <Text style={styles.brand}>GYMFINDER</Text>
             <Text style={styles.tagline}>Find your next workout</Text>
           </View>
-          <View style={styles.locationBadge}>
-            <Text style={styles.locationBadgeText}>CEBU</Text>
+          <View style={styles.segmented} accessibilityRole="tablist">
+            {(['map', 'list'] as const).map((mode) => {
+              const active = viewMode === mode;
+              return (
+                <Pressable
+                  key={mode}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setViewMode(mode)}
+                  style={[styles.segment, active && styles.segmentActive]}
+                >
+                  <Ionicons
+                    name={mode === 'map' ? 'map' : 'list'}
+                    size={14}
+                    color={active ? '#173c35' : '#d5e5df'}
+                  />
+                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                    {mode === 'map' ? 'Map' : 'List'}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
         <View style={styles.searchBox}>
-          <Text style={styles.searchGlyph}>⌕</Text>
+          <Ionicons name="search" size={18} color="#52625c" />
           <TextInput
             accessibilityLabel="Search gyms"
             value={query}
@@ -177,44 +252,12 @@ export default function MapScreen() {
             style={styles.searchInput}
           />
           {query.length > 0 && (
-            <Pressable onPress={() => setQuery('')} accessibilityLabel="Clear search">
-              <Text style={styles.clearSearch}>×</Text>
+            <Pressable onPress={() => setQuery('')} hitSlop={10} accessibilityLabel="Clear search">
+              <Ionicons name="close-circle" size={18} color="#8a948f" />
             </Pressable>
           )}
         </View>
       </View>
-
-      {locationError && (
-        <View style={styles.locationNotice}>
-          <Text style={styles.locationNoticeText}>{locationError}</Text>
-        </View>
-      )}
-
-      <View style={styles.mapContainer}>
-        <MapWebView
-          center={mapCenter}
-          userLocation={hasUserLocation ? location : null}
-          gyms={gyms}
-          onGymPress={(id) => void openGymFromMap(id)}
-          onMapMove={(center) => {
-            setPendingCenter(center);
-            setHasMovedMap(true);
-          }}
-          onMapError={setMapError}
-        />
-        {hasMovedMap && (
-          <Pressable onPress={searchThisArea} style={styles.searchAreaButton}>
-            <Text style={styles.searchAreaText}>Search this area</Text>
-          </Pressable>
-        )}
-      </View>
-      {mapError && (
-        <View style={styles.mapErrorNotice}>
-          <Text numberOfLines={2} style={styles.mapErrorText}>
-            Map issue: {mapError}
-          </Text>
-        </View>
-      )}
 
       <FilterBar
         amenity={amenity}
@@ -223,54 +266,157 @@ export default function MapScreen() {
         onMaxPriceChange={setMaxPrice}
       />
 
-      <View style={styles.resultsHeading}>
-        <View>
-          <Text style={styles.resultsTitle}>Nearby gyms</Text>
-          <Text style={styles.resultsSubtitle}>
-            {gyms.length} {gyms.length === 1 ? 'place' : 'places'} · sorted by distance
+      {(locationError || noticeError) && (
+        <Pressable onPress={() => setNoticeError(null)} style={styles.notice}>
+          <Ionicons name="information-circle" size={15} color="#765116" />
+          <Text style={styles.noticeText} numberOfLines={2}>
+            {noticeError || locationError}
           </Text>
-        </View>
-        {loading && <ActivityIndicator color="#173c35" />}
-      </View>
-
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable onPress={() => setRefreshKey((value) => value + 1)}>
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
-        </View>
+        </Pressable>
       )}
 
-      <FlatList
-        data={gyms}
-        keyExtractor={(gym) => gym._id}
-        renderItem={({ item }) => (
-          <GymCard gym={item} onPress={() => openGym(item)} />
-        )}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={() => setRefreshKey((value) => value + 1)}
-            tintColor="#173c35"
-          />
-        }
-        ListEmptyComponent={
-          loading ? null : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>
-                {error ? 'Could not load gyms' : 'No gyms found here'}
-              </Text>
-              <Text style={styles.emptyText}>
-                {error
-                  ? 'Check that the API is running and try again.'
-                  : 'Try another filter or search a different map area.'}
+      <View style={styles.body}>
+        <MapWebView
+          center={mapCenter}
+          userLocation={hasUserLocation ? location : null}
+          gyms={gyms}
+          selectedGymId={focusedGymId}
+          bottomInset={gyms.length > 0 ? CAROUSEL_HEIGHT : 0}
+          onGymPress={(id) => void handleMarkerPress(id)}
+          onMapMove={(center) => {
+            setPendingCenter(center);
+            setHasMovedMap(true);
+          }}
+          onMapError={(message) => setNoticeError(`Map issue: ${message}`)}
+        />
+
+        {/* Map-mode overlays */}
+        <View style={styles.mapTopOverlay} pointerEvents="box-none">
+          {loading ? (
+            <View style={styles.statusPill}>
+              <ActivityIndicator size="small" color="#173c35" />
+              <Text style={styles.statusText}>
+                {slowLoading ? 'Fetching gyms for this area… up to a minute' : 'Finding gyms…'}
               </Text>
             </View>
+          ) : error ? (
+            <Pressable onPress={retry} style={[styles.statusPill, styles.errorPill]}>
+              <Ionicons name="alert-circle" size={16} color="#9b2c2c" />
+              <Text style={[styles.statusText, styles.errorText]} numberOfLines={1}>
+                Couldn’t load gyms · Tap to retry
+              </Text>
+            </Pressable>
+          ) : hasMovedMap ? (
+            <Pressable onPress={searchThisArea} style={styles.searchAreaButton}>
+              <Ionicons name="search" size={14} color="#fff" />
+              <Text style={styles.searchAreaText}>Search this area</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {hasUserLocation && (
+          <Pressable
+            accessibilityLabel="Center map on my location"
+            onPress={recenterOnUser}
+            style={[
+              styles.locateButton,
+              { bottom: (gyms.length > 0 ? CAROUSEL_HEIGHT : 0) + 14 },
+            ]}
+          >
+            <Ionicons name="locate" size={22} color="#173c35" />
+          </Pressable>
+        )}
+
+        {gyms.length > 0 ? (
+          <FlatList
+            ref={carouselRef}
+            data={gyms}
+            horizontal
+            keyExtractor={(gym) => gym._id}
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={cardInterval}
+            decelerationRate="fast"
+            contentContainerStyle={styles.carouselContent}
+            style={styles.carousel}
+            getItemLayout={(_, index) => ({
+              length: cardInterval,
+              offset: cardInterval * index,
+              index,
+            })}
+            onMomentumScrollEnd={handleCarouselSettled}
+            renderItem={({ item }) => (
+              <GymCard
+                gym={item}
+                variant="compact"
+                selected={item._id === focusedGymId}
+                onPress={() => setSelectedGym(item)}
+                style={{ width: cardWidth, marginRight: CAROUSEL_CARD_GAP }}
+              />
+            )}
+          />
+        ) : (
+          !loading &&
+          !error && (
+            <View style={styles.mapEmptyCard}>
+              <Ionicons name="barbell-outline" size={22} color="#173c35" />
+              <View style={styles.mapEmptyTextWrap}>
+                <Text style={styles.emptyTitle}>No gyms found here</Text>
+                <Text style={styles.emptyText}>{emptyHint}</Text>
+              </View>
+            </View>
           )
-        }
-      />
+        )}
+
+        {viewMode === 'list' && (
+          <View style={styles.listLayer}>
+            <FlatList
+              data={gyms}
+              keyExtractor={(gym) => gym._id}
+              renderItem={({ item }) => (
+                <GymCard gym={item} onPress={() => setSelectedGym(item)} />
+              )}
+              contentContainerStyle={styles.listContent}
+              ListHeaderComponent={
+                <View style={styles.resultsHeading}>
+                  <Text style={styles.resultsTitle}>{resultsLabel}</Text>
+                  {!loading && gyms.length > 0 && (
+                    <Text style={styles.resultsSubtitle}>Sorted by distance</Text>
+                  )}
+                  {error && (
+                    <View style={styles.errorBanner}>
+                      <Text style={styles.errorBannerText}>{error}</Text>
+                      <Pressable onPress={retry} hitSlop={8}>
+                        <Text style={styles.retryText}>Retry</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  {loading && slowLoading && (
+                    <Text style={styles.resultsSubtitle}>
+                      First search in a new area can take up to a minute.
+                    </Text>
+                  )}
+                </View>
+              }
+              refreshControl={
+                <RefreshControl refreshing={loading} onRefresh={retry} tintColor="#173c35" />
+              }
+              ListEmptyComponent={
+                loading ? undefined : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="barbell-outline" size={36} color="#9aa7a1" />
+                    <Text style={styles.emptyTitle}>
+                      {error ? 'Could not load gyms' : 'No gyms found here'}
+                    </Text>
+                    <Text style={[styles.emptyText, styles.centeredText]}>
+                      {error ? 'Check that the API is running and try again.' : emptyHint}
+                    </Text>
+                  </View>
+                )
+              }
+            />
+          </View>
+        )}
+      </View>
 
       <GymBottomSheet
         gym={selectedGym}
@@ -298,16 +444,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f4f6f8',
   },
   header: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
     backgroundColor: '#173c35',
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 13,
+    marginBottom: 11,
   },
   brand: {
     color: '#fff',
@@ -320,31 +466,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  locationBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 13,
+  segmented: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 18,
     backgroundColor: '#28594c',
   },
-  locationBadgeText: {
-    color: '#e5f2ec',
-    fontSize: 10,
+  segment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  segmentActive: {
+    backgroundColor: '#fff',
+  },
+  segmentText: {
+    color: '#d5e5df',
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.8,
+  },
+  segmentTextActive: {
+    color: '#173c35',
   },
   searchBox: {
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 12,
     borderRadius: 13,
     backgroundColor: '#fff',
-  },
-  searchGlyph: {
-    color: '#52625c',
-    fontSize: 23,
-    marginRight: 7,
-    marginTop: -4,
   },
   searchInput: {
     flex: 1,
@@ -352,54 +506,134 @@ const styles = StyleSheet.create({
     color: '#17221f',
     fontSize: 14,
   },
-  clearSearch: {
-    color: '#68756f',
-    fontSize: 22,
-    paddingHorizontal: 3,
-  },
-  locationNotice: {
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: '#fff4df',
   },
-  locationNoticeText: {
+  noticeText: {
+    flex: 1,
     color: '#765116',
     fontSize: 11,
   },
-  mapContainer: {
-    position: 'relative',
+  body: {
+    flex: 1,
+  },
+  mapTopOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    maxWidth: '78%',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  statusText: {
+    flexShrink: 1,
+    color: '#173c35',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorPill: {
+    backgroundColor: '#fdecec',
+  },
+  errorText: {
+    color: '#9b2c2c',
   },
   searchAreaButton: {
-    position: 'absolute',
-    alignSelf: 'center',
-    bottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 17,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: '#173c35',
-    elevation: 3,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   searchAreaText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '800',
   },
-  mapErrorNotice: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: '#fff4df',
+  locateButton: {
+    position: 'absolute',
+    right: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
-  mapErrorText: {
-    color: '#765116',
-    fontSize: 10,
+  carousel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 12,
+    flexGrow: 0,
   },
-  resultsHeading: {
+  carouselContent: {
+    paddingHorizontal: CAROUSEL_SIDE_GAP,
+    paddingVertical: 4,
+  },
+  mapEmptyCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  mapEmptyTextWrap: {
+    flex: 1,
+  },
+  listLayer: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#f4f6f8',
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: 16,
+  },
+  resultsHeading: {
     paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 9,
+    paddingTop: 6,
+    paddingBottom: 10,
+    gap: 3,
   },
   resultsTitle: {
     color: '#17221f',
@@ -408,38 +642,33 @@ const styles = StyleSheet.create({
   },
   resultsSubtitle: {
     color: '#77828b',
-    fontSize: 11,
-    marginTop: 3,
+    fontSize: 12,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 8,
+    marginTop: 8,
     padding: 10,
     borderRadius: 10,
     backgroundColor: '#fdecec',
   },
-  errorText: {
+  errorBannerText: {
     flex: 1,
     color: '#9b2c2c',
-    fontSize: 11,
+    fontSize: 12,
   },
   retryText: {
     color: '#8b2020',
     fontSize: 12,
     fontWeight: '800',
   },
-  listContent: {
-    paddingTop: 2,
-    paddingBottom: 12,
-  },
   emptyState: {
     alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 30,
-    paddingVertical: 28,
+    paddingVertical: 40,
   },
   emptyTitle: {
     color: '#26332f',
@@ -449,7 +678,9 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#78838b',
     fontSize: 12,
+    marginTop: 2,
+  },
+  centeredText: {
     textAlign: 'center',
-    marginTop: 6,
   },
 });

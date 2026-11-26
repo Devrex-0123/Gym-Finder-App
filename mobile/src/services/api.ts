@@ -5,7 +5,9 @@ const baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000';
 
 export const api = axios.create({
   baseURL,
-  timeout: 20000,
+  // The first nearby search in a new area can wait on OpenStreetMap
+  // (backend retries for up to 70s).
+  timeout: 90000,
   headers: { Accept: 'application/json' },
 });
 

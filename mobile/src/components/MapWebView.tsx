@@ -1,15 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import { useEffect, useRef, useState, type ComponentType, type Ref } from 'react';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { WebView as RNWebView } from 'react-native-webview';
+import type {
+  WebViewErrorEvent,
+  WebViewHttpErrorEvent,
+  WebViewMessageEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 import type { Coordinates, Gym } from '../types/gym';
+
+type WebViewHandle = { injectJavaScript: (script: string) => void };
+
+// react-native-webview 14's WebViewProps collapse to `never` under React 19.3's
+// types, so declare the props this component actually uses.
+const WebView = RNWebView as unknown as ComponentType<{
+  ref?: Ref<WebViewHandle>;
+  source: { html: string };
+  originWhitelist: string[];
+  javaScriptEnabled?: boolean;
+  domStorageEnabled?: boolean;
+  onLoadEnd?: () => void;
+  onMessage?: (event: WebViewMessageEvent) => void;
+  onError?: (event: WebViewErrorEvent) => void;
+  onHttpError?: (event: WebViewHttpErrorEvent) => void;
+  style?: StyleProp<ViewStyle>;
+}>;
 
 interface MapWebViewProps {
   center: Coordinates;
   userLocation: Coordinates | null;
   gyms: Gym[];
+  /** Highlights this gym's pin and pans the map to it. */
+  selectedGymId?: string | null;
+  /** Space (px) covered by overlays at the bottom, so focused pins stay visible. */
+  bottomInset?: number;
   onGymPress: (gymId: string) => void;
   onMapMove: (center: Coordinates) => void;
   onMapError: (message: string) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
 function scriptValue(value: unknown): string {
@@ -33,6 +60,8 @@ function createMapHtml(
       position: relative;
       width: 32px; height: 38px; display: flex; justify-content: center;
       align-items: flex-start; cursor: pointer; filter: drop-shadow(0 2px 3px #0005);
+      transition: transform 120ms ease-out;
+      transform-origin: bottom center;
     }
     .gym-pin::before {
       content: ""; width: 28px; height: 28px; margin-top: 2px;
@@ -43,24 +72,13 @@ function createMapHtml(
       content: ""; width: 8px; height: 8px; position: absolute; top: 12px;
       background: white; border-radius: 50%;
     }
-    .attribution {
-      position: absolute; bottom: 4px; left: 4px; z-index: 2;
-      padding: 3px 6px; border-radius: 3px; background: #fffE;
-      color: #333; font-size: 10px;
-    }
-    .attribution a { color: #1769aa; text-decoration: none; }
-    .map-error { display: none; position: absolute; inset: 0; background: #f2f4f7;
-      color: #263238; align-items: center; justify-content: center; text-align: center;
-      padding: 24px; box-sizing: border-box; }
+    .gym-pin.selected { z-index: 5; }
+    .gym-pin.selected::before { background: #173c35; }
+    .maplibregl-ctrl-attrib.maplibregl-compact { font-size: 10px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="attribution">
-    © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>
-    · <a href="https://openfreemap.org/">OpenFreeMap</a>
-  </div>
-  <div id="map-error" class="map-error"></div>
   <script src="https://unpkg.com/maplibre-gl@4.0.2/dist/maplibre-gl.js"></script>
   <script>
     (function () {
@@ -73,7 +91,9 @@ function createMapHtml(
       )};
       let gyms = ${scriptValue(gyms)};
       let map;
-      let markers = [];
+      let markers = {};
+      let selectedId = null;
+      let bottomInset = 0;
       let userCoordinates = initialUser;
       let mapLoaded = false;
       let ignoreProgrammaticMove = false;
@@ -84,9 +104,18 @@ function createMapHtml(
         }
       }
 
+      function applySelection() {
+        Object.keys(markers).forEach(function (id) {
+          const element = markers[id].getElement();
+          const selected = id === selectedId;
+          element.classList.toggle('selected', selected);
+          element.style.transform = selected ? 'scale(1.3)' : '';
+        });
+      }
+
       function renderGyms() {
-        markers.forEach(function (marker) { marker.remove(); });
-        markers = [];
+        Object.keys(markers).forEach(function (id) { markers[id].remove(); });
+        markers = {};
         gyms.forEach(function (gym) {
           const element = document.createElement('div');
           element.className = 'gym-pin';
@@ -97,8 +126,16 @@ function createMapHtml(
             event.stopPropagation();
             send({ type: 'gymClick', id: gym._id });
           });
-          markers.push(marker);
+          markers[gym._id] = marker;
         });
+        applySelection();
+      }
+
+      function focusSelected() {
+        const gym = gyms.find(function (item) { return item._id === selectedId; });
+        if (!gym || !map) return;
+        ignoreProgrammaticMove = true;
+        map.easeTo({ center: gym.location.coordinates, duration: 450 });
       }
 
       function setUserPoint(coordinates) {
@@ -137,27 +174,30 @@ function createMapHtml(
       }
 
       window.updateMapData = function (payload) {
+        const ready = map && map.isStyleLoaded();
+        if (typeof payload.bottomInset === 'number') {
+          bottomInset = payload.bottomInset;
+          if (map) map.setPadding({ top: 0, left: 0, right: 0, bottom: bottomInset });
+        }
         if (payload.gyms) {
           gyms = payload.gyms;
-          if (map && map.isStyleLoaded()) renderGyms();
+          if (ready) renderGyms();
         }
         if (payload.userLocation) {
           userCoordinates = [payload.userLocation.longitude, payload.userLocation.latitude];
-          if (map && map.isStyleLoaded()) setUserPoint(userCoordinates);
+          if (ready) setUserPoint(userCoordinates);
         }
-        if (payload.center && map && map.isStyleLoaded()) {
+        if (payload.center) {
           centerCoordinates = [payload.center.longitude, payload.center.latitude];
-        } else if (payload.center) {
-          centerCoordinates = [payload.center.longitude, payload.center.latitude];
-        }
-        if (payload.center && map && map.isStyleLoaded()) {
-          const current = map.getCenter();
-          const longitudeDifference = Math.abs(current.lng - centerCoordinates[0]);
-          const latitudeDifference = Math.abs(current.lat - centerCoordinates[1]);
-          if (longitudeDifference > 0.000001 || latitudeDifference > 0.000001) {
+          if (ready) {
             ignoreProgrammaticMove = true;
-            map.setCenter(centerCoordinates);
+            map.easeTo({ center: centerCoordinates, duration: 450 });
           }
+        }
+        if (payload.selectedId !== undefined) {
+          selectedId = payload.selectedId;
+          applySelection();
+          if (ready && selectedId) focusSelected();
         }
       };
 
@@ -171,21 +211,18 @@ function createMapHtml(
         style: 'https://tiles.openfreemap.org/styles/liberty',
         center: startCenter,
         zoom: 14,
-        attributionControl: true
+        attributionControl: false
       });
+      // Top corners stay clear of the gym cards that overlay the bottom of the map.
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.on('load', function () {
         mapLoaded = true;
+        map.setPadding({ top: 0, left: 0, right: 0, bottom: bottomInset });
         if (userCoordinates) setUserPoint(userCoordinates);
         renderGyms();
-        const current = map.getCenter();
-        if (
-          Math.abs(current.lng - centerCoordinates[0]) > 0.000001 ||
-          Math.abs(current.lat - centerCoordinates[1]) > 0.000001
-        ) {
-          ignoreProgrammaticMove = true;
-          map.setCenter(centerCoordinates);
-        }
+        ignoreProgrammaticMove = true;
+        map.jumpTo({ center: centerCoordinates });
       });
       map.on('moveend', function () {
         if (!mapLoaded || ignoreProgrammaticMove) {
@@ -212,29 +249,43 @@ export default function MapWebView({
   center,
   userLocation,
   gyms,
+  selectedGymId = null,
+  bottomInset = 0,
   onGymPress,
   onMapMove,
   onMapError,
+  style,
 }: MapWebViewProps) {
-  const webViewRef = useRef<WebView | null>(null);
+  const webViewRef = useRef<WebViewHandle | null>(null);
   const [initialHtml] = useState(() => createMapHtml(center, userLocation, gyms));
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    if (!loaded) return;
-    const payload = scriptValue({ gyms });
+  function send(payload: Record<string, unknown>) {
     webViewRef.current?.injectJavaScript(
-      `window.updateMapData(${payload}); true;`,
+      `if (window.updateMapData) window.updateMapData(${scriptValue(payload)}); true;`,
     );
+  }
+
+  useEffect(() => {
+    if (loaded) send({ bottomInset });
+  }, [bottomInset, loaded]);
+
+  useEffect(() => {
+    if (loaded) send({ gyms });
   }, [gyms, loaded]);
 
   useEffect(() => {
-    if (!loaded) return;
-    const payload = scriptValue({ userLocation, center });
-    webViewRef.current?.injectJavaScript(
-      `window.updateMapData(${payload}); true;`,
-    );
-  }, [center, loaded, userLocation]);
+    if (loaded) send({ userLocation });
+  }, [loaded, userLocation]);
+
+  // `center` is compared by reference: pass a new object to re-center on the same spot.
+  useEffect(() => {
+    if (loaded) send({ center });
+  }, [center, loaded]);
+
+  useEffect(() => {
+    if (loaded) send({ selectedId: selectedGymId });
+  }, [loaded, selectedGymId]);
 
   function handleMessage(event: WebViewMessageEvent) {
     try {
@@ -262,7 +313,7 @@ export default function MapWebView({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <WebView
         ref={webViewRef}
         source={{ html: initialHtml }}
@@ -283,7 +334,7 @@ export default function MapWebView({
 
 const styles = StyleSheet.create({
   container: {
-    height: 320,
+    flex: 1,
     overflow: 'hidden',
     backgroundColor: '#e8edf0',
   },

@@ -2,7 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Gym from '../models/Gym.js';
 import { fetchOsmGymById, fetchOsmGyms } from '../services/overpass.js';
-import { seedOsmGyms } from '../services/seedGyms.js';
+import { saveOsmGyms, seedOsmGyms } from '../services/seedGyms.js';
 
 const router = express.Router();
 const DEFAULT_RADIUS_METERS = 15000;
@@ -77,8 +77,8 @@ function getDistanceMeters(fromLat, fromLng, coordinates) {
 function requireSeedKey(req, res, next) {
   const configuredKey = process.env.SEED_API_KEY;
 
-  if (!configuredKey && process.env.NODE_ENV === 'production') {
-    return res.status(503).json({ error: 'Seeding is disabled in production.' });
+  if (!configuredKey) {
+    return res.status(503).json({ error: 'Set SEED_API_KEY before enabling gym seeding.' });
   }
   if (configuredKey && req.get('x-seed-key') !== configuredKey) {
     return res.status(401).json({ error: 'A valid x-seed-key header is required.' });
@@ -105,20 +105,37 @@ router.get('/nearby', async (req, res, next) => {
       maxPrice,
     });
 
-    const gyms = await Gym.find({
-      ...filters,
-      location: {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [lng, lat],
+    const findNearby = () =>
+      Gym.find({
+        ...filters,
+        location: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [lng, lat],
+            },
+            $maxDistance: radius,
           },
-          $maxDistance: radius,
         },
-      },
-    })
-      .limit(100)
-      .lean();
+      })
+        .limit(100)
+        .lean();
+
+    let gyms = await findNearby();
+
+    // No gyms stored for this area yet: pull them from OpenStreetMap once,
+    // cache them in MongoDB, then rerun the same filtered query.
+    if (gyms.length === 0) {
+      const radiusRadians = radius / 6378100;
+      const hasAnyNearby = await Gym.exists({
+        isActive: true,
+        location: { $geoWithin: { $centerSphere: [[lng, lat], radiusRadians] } },
+      });
+      if (!hasAnyNearby) {
+        await saveOsmGyms(await fetchOsmGyms({ lat, lng, radius }));
+        gyms = await findNearby();
+      }
+    }
 
     res.json({
       gyms: gyms.map((gym) => ({

@@ -1,6 +1,18 @@
-import { ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
+import type { ComponentProps } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const amenityOptions = ['All', '24hrs', 'Pool', 'Boxing', 'Yoga', 'Women-only'];
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+const amenityOptions: Array<{ label: string; icon: IconName }> = [
+  { label: 'All', icon: 'apps-outline' },
+  { label: '24hrs', icon: 'time-outline' },
+  { label: 'Pool', icon: 'water-outline' },
+  { label: 'Boxing', icon: 'fitness-outline' },
+  { label: 'Yoga', icon: 'body-outline' },
+  { label: 'Women-only', icon: 'female-outline' },
+];
+
 const priceOptions: Array<{ label: string; value: number | null }> = [
   { label: 'Any price', value: null },
   { label: '< ₱500', value: 500 },
@@ -17,10 +29,12 @@ interface FilterBarProps {
 
 function FilterChip({
   label,
+  icon,
   selected,
   onPress,
 }: {
   label: string;
+  icon?: IconName;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -29,15 +43,16 @@ function FilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
+      hitSlop={4}
       style={[styles.chip, selected && styles.selectedChip]}
     >
-      <Text style={[styles.chipText, selected && styles.selectedChipText]}>
-        {label}
-      </Text>
+      {icon && <Ionicons name={icon} size={14} color={selected ? '#fff' : '#4a5852'} />}
+      <Text style={[styles.chipText, selected && styles.selectedChipText]}>{label}</Text>
     </Pressable>
   );
 }
 
+/** One horizontally scrolling row: amenities, a divider, then price caps. */
 export default function FilterBar({
   amenity,
   maxPrice,
@@ -45,63 +60,57 @@ export default function FilterBar({
   onMaxPriceChange,
 }: FilterBarProps) {
   return (
-    <View style={styles.wrapper}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      >
-        {amenityOptions.map((option) => (
-          <FilterChip
-            key={option}
-            label={option}
-            selected={option === 'All' ? amenity === null : amenity === option}
-            onPress={() => onAmenityChange(option === 'All' ? null : option)}
-          />
-        ))}
-      </ScrollView>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.row, styles.priceRow]}
-      >
-        <Text style={styles.priceLabel}>Monthly/session price</Text>
-        {priceOptions.map((option) => (
-          <FilterChip
-            key={option.label}
-            label={option.label}
-            selected={maxPrice === option.value}
-            onPress={() => onMaxPriceChange(option.value)}
-          />
-        ))}
-      </ScrollView>
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      style={styles.wrapper}
+    >
+      {amenityOptions.map((option) => (
+        <FilterChip
+          key={option.label}
+          label={option.label}
+          icon={option.icon}
+          selected={option.label === 'All' ? amenity === null : amenity === option.label}
+          onPress={() => onAmenityChange(option.label === 'All' ? null : option.label)}
+        />
+      ))}
+      <View style={styles.divider} />
+      {priceOptions.map((option) => (
+        <FilterChip
+          key={option.label}
+          label={option.label}
+          icon={option.value === null ? 'pricetag-outline' : undefined}
+          selected={maxPrice === option.value}
+          onPress={() => onMaxPriceChange(option.value)}
+        />
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingTop: 10,
-    paddingBottom: 4,
+    flexGrow: 0,
     backgroundColor: '#f4f6f8',
   },
   row: {
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 7,
   },
-  priceRow: {
-    paddingBottom: 6,
-  },
-  priceLabel: {
-    color: '#66717d',
-    fontSize: 12,
-    fontWeight: '600',
-    marginRight: 2,
+  divider: {
+    width: 1,
+    height: 22,
+    marginHorizontal: 4,
+    backgroundColor: '#d3dad6',
   },
   chip: {
-    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
     borderWidth: 1,
@@ -115,7 +124,7 @@ const styles = StyleSheet.create({
   chipText: {
     color: '#34404b',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   selectedChipText: {
     color: '#fff',

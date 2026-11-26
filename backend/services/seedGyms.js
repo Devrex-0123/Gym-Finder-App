@@ -19,6 +19,24 @@ function distanceMeters(fromLat, fromLng, coordinates) {
   return 6371000 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 }
 
+// Upserts normalized OSM gyms (from fetchOsmGyms) into MongoDB, keyed by OSM type/id.
+export async function saveOsmGyms(osmGyms) {
+  if (osmGyms.length === 0) return;
+
+  const operations = osmGyms.map((gym) => {
+    const { _id, ...fields } = gym;
+    return {
+      updateOne: {
+        filter: { source: 'osm', osmType: gym.osmType, osmId: gym.osmId },
+        update: { $set: fields },
+        upsert: true,
+      },
+    };
+  });
+
+  await Gym.bulkWrite(operations, { ordered: false });
+}
+
 export async function seedOsmGyms({
   lat = DEFAULT_SEED_CENTER.lat,
   lng = DEFAULT_SEED_CENTER.lng,
@@ -44,18 +62,7 @@ export async function seedOsmGyms({
     };
   }
 
-  const operations = gymsToSave.map((gym) => {
-    const { _id, ...fields } = gym;
-    return {
-      updateOne: {
-        filter: { source: 'osm', osmType: gym.osmType, osmId: gym.osmId },
-        update: { $set: fields },
-        upsert: true,
-      },
-    };
-  });
-
-  await Gym.bulkWrite(operations, { ordered: false });
+  await saveOsmGyms(gymsToSave);
 
   const gyms = await Gym.find({
     source: 'osm',

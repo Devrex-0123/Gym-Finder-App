@@ -112,21 +112,49 @@ function normalizeElement(element) {
   };
 }
 
+// Public Overpass servers often take 30-45s for a 15 km radius query and
+// intermittently reject requests with 429/502/503/504 when busy.
+const OVERPASS_TOTAL_BUDGET_MS = 70000;
+const OVERPASS_RETRY_DELAY_MS = 3000;
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+
 async function runOverpassQuery(query) {
+  const deadline = Date.now() + OVERPASS_TOTAL_BUDGET_MS;
+  let lastError;
+
+  while (Date.now() < deadline) {
+    try {
+      return await runOverpassAttempt(query, deadline - Date.now());
+    } catch (error) {
+      lastError = error;
+      if (!error.retryable || Date.now() + OVERPASS_RETRY_DELAY_MS >= deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, OVERPASS_RETRY_DELAY_MS));
+    }
+  }
+
+  throw lastError;
+}
+
+async function runOverpassAttempt(query, timeoutMs) {
   const endpoint = process.env.OVERPASS_URL || DEFAULT_OVERPASS_URL;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'GymFinder/1.0 (OpenStreetMap Overpass client)',
+      },
       body: new URLSearchParams({ data: query }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Overpass returned HTTP ${response.status}.`);
+      throw Object.assign(new Error(`Overpass returned HTTP ${response.status}.`), {
+        retryable: RETRYABLE_STATUSES.has(response.status),
+      });
     }
 
     const payload = await response.json();
@@ -149,7 +177,7 @@ async function runOverpassQuery(query) {
 export async function fetchOsmGyms({ lat, lng, radius = 15000 }) {
   assertCoordinates(lat, lng, radius);
   const query = `
-    [out:json][timeout:20];
+    [out:json][timeout:55];
     nwr["leisure"="fitness_centre"](around:${radius},${lat},${lng});
     out center tags;
   `;
@@ -165,7 +193,7 @@ export async function fetchOsmGymById(type, id) {
   }
 
   const query = `
-    [out:json][timeout:20];
+    [out:json][timeout:55];
     ${type}(id:${id});
     out center tags;
   `;
